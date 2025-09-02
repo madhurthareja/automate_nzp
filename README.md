@@ -1,6 +1,6 @@
 # NZP CLI Automation Tool
 
-A command-line interface tool that uses two Ollama models to create structured project documentation following NZP (Non-Zero Project) methodology.
+A command-line interface tool that uses two Ollama models to create structured project documentation following NZP (New-Zoho Project) methodology.
 
 ## Overview
 
