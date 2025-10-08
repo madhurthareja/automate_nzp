@@ -3,6 +3,8 @@ import os
 import argparse
 import requests
 import json
+import re
+import hashlib
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.panel import Panel
@@ -139,6 +141,7 @@ def validate(section: str, answer: str, min_words: int) -> bool:
 def main():
     parser = argparse.ArgumentParser(description="NZP CLI Automation Tool")
     parser.add_argument("--project", required=True, help="Project name")
+    parser.add_argument("--out", "-o", help="Output filename (optional). If omitted a safe filename will be generated from the project name.")
     parser.add_argument("--type", default="General", help="Project type/profile")
     parser.add_argument("--interviewer-model", default="llama3.1:8b-instruct-q4_K_M", help="Model for asking questions")
     parser.add_argument("--responder-model", default="llama3.2:3b-instruct-q4_K_M", help="Model for generating answers")
@@ -180,6 +183,32 @@ def main():
     for section, _ in SECTIONS:
         output += f"## {section}\n{answers.get(section, '')}\n\n"
     out_file = f"{project_name.replace(' ', '_').lower()}.md"
+    def make_safe_filename(name: str, max_len: int = 120) -> str:
+        """Create a filesystem-safe, reasonably short filename base from a project name.
+
+        - Replace non-alphanumeric characters with underscores.
+        - Collapse repeated underscores.
+        - Trim leading/trailing underscores or dashes.
+        - Truncate to max_len and append an 8-char hash when truncated to keep uniqueness.
+        """
+        if not name:
+            return "project"
+        # Normalize whitespace and replace unsafe chars with underscore
+        slug = re.sub(r"[^A-Za-z0-9._-]", "_", name)
+        # Collapse multiple underscores/dots/dashes
+        slug = re.sub(r"[_\.\-]{2,}", "_", slug)
+        slug = slug.strip("_.-")
+        slug = slug.lower()
+        if not slug:
+            slug = "project"
+        # Ensure we have a reasonably sized basename (reserve room for extension)
+        if len(slug) > max_len:
+            h = hashlib.sha1(name.encode("utf-8")).hexdigest()[:8]
+            slug = slug[: max_len - 9].rstrip("_-.") + "_" + h
+        return slug
+
+    # Allow override via CLI; otherwise generate a safe filename from the project name
+    out_file = args.out if getattr(args, "out", None) else f"{make_safe_filename(project_name)}.md"
     with open(out_file, "w") as f:
         f.write(output)
     console.print(Panel(f"Project skeleton saved to [bold]{out_file}[/bold]", title="Done", style="green"))
